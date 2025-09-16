@@ -95,6 +95,61 @@ flights[, -c("arr_delay", "dep_delay")]
 ### 2. Aggregations
 ## a. Grouping using by
 # how can we get the number of trips corresponding to each origin airport
+flights[, .(.N), by = .(origin)]
 
+# how can we calculate the number of trips for each origin airport for carrier
+# code "AA"
+flights[carrier == "AA", .N, by = origin]
 
+# total number of trips for each origin, dest pair for carrier code "AA"
+flights[carrier == "AA", .N, by = .(origin, dest)]
+
+# average arrival and departure delay for each orig, dest pair for each
+# month for carrier code "AA"
+flights[carrier == "AA",
+        .(mean(arr_delay), mean(dep_delay)), 
+        by = .(origin, dest, month)]
+
+## b. sorted by: keyby
+flights[carrier == "AA", 
+        .(mean(arr_delay), mean(dep_delay)),
+        keyby = .(origin, dest, month)]
+
+## c. chaining
+# how can we order ans using the columns origin in ascending order, 
+# and dest in descending order
+flights[carrier == "AA", .N, by = .(origin, dest)][order(origin, -dest)]
+
+## d. expressions in by
+# can by accept expressions as well or does it just take columns
+flights[, .N, .(dep_delay > 0, arr_delay > 0)]
+
+## multiple columns in j - SD.
+# how to specify just the columns we would like to compute the (mean)
+flights[carrier == "AA",
+        lapply(.SD, mean),
+        by = .(origin, dest, month),
+        .SDcols = c("arr_delay", "dep_delay")]
+
+## .f subset .SD for each group
+# how can we return the first two rows for each month
+flights[, head(.SD, 2), by = month]
+
+## .g why keep j so flexible
+# do long distance flights cover up departure delay more than short
+# distance flights?
+# does cover up vary by month?
+flights[, `:=`(makeup = dep_delay - arr_delay)]
+
+makeup.models <- flights[, .(fit = list(lm(makeup ~ distance))), by = .(month)]
+makeup.models[, .(coefdist = coef(fit[[1]])[2], rsq = summary(fit[[1]])$r.squared), by = .(month)]
+
+setDF(flights)
+flights.split <- split(flights, f = flights$month)
+makeup.models.list <- lapply(flights.split, function(df) c(month = df$month[1], fit = list(lm(makeup ~ distance, data = df))))
+makeup.models.df <- do.call(rbind, makeup.models.list)
+data.frame(t(sapply(
+  makeup.models.df[, "fit"],
+  function(model) c(coefdist = coef(model)[2L], rsq = summary(model)$r.squared)
+)))
 
