@@ -39,6 +39,7 @@ library(lubridate)
 library(data.table)
 library(httr2)
 library(fredr)
+library(cli)
 
 # downloaded series
 ## Real Economy:
@@ -174,6 +175,7 @@ api_pull_data_request <- function(..., series, start, end, sort = "desc") {
   return(req_json_tibble)
 }
 
+
 # check frequency
 check_frequency <- function(data) {
 
@@ -199,9 +201,25 @@ check_frequency <- function(data) {
   return(data)
 }
 
-# function to pull various series based on macroeconomic indicator theme
-test <- api_pull_data_request(series = "PAYEMS", start = "2010-01-01", end = "2025-09-16", sort = "desc")
+# function to check for available series
+update_fun_text <- function(series_data) {
+  cli_alert_info("A more recent series is/are available to download.")
+  series_update <- series_data %>% filter(need_to_update_series == TRUE)
+  series_update_id <- series_update$id
+  for (i in series_update_id) {
+    row_data <- series_update[series_update$id == i, ]
+    series_id <- row_data$id
+    series_title <- row_data$title
+    series_queried_date <- row_data$queried_end_date
+    series_latest_date <- row_data$last_updated
+    cli_h3(paste0("Series ID: ", series_id))
+    cli_li(paste0("Title: ", series_title))
+    cli_li(paste0("Queried Date: ", series_queried_date))
+    cli_li(paste0("Latest/recent available series: ", series_latest_date))
+  }
+}
 
+# function to pull various series based on macroeconomic indicator theme
 pull_data_fred <- function(series_vector, start_date, end_date) {
   
   # container list
@@ -214,7 +232,7 @@ pull_data_fred <- function(series_vector, start_date, end_date) {
       data <- api_pull_data_request(series = series_vector[i], start = start_date, end = end_date, sort = "desc") 
       
     }, error = function(e) {
-      message("Error for series ", series_vector[i], ". Please recheck parameters.")
+      message("Error for series ", series_vector[i], ". Please recheck parameters or connection.")
       data <- data.frame(realtime_start = NA,
                          realtime_end = NA,
                          date = NA,
@@ -230,23 +248,33 @@ pull_data_fred <- function(series_vector, start_date, end_date) {
     })
 
     # change the i with the series ID
-    series_container[[i]] <- data
+    series_container[[series_vector[i]]] <- data
     
   }
   # check for recent data updates
   # if newer version of the series exist then inform the user
   # delete and add recent series
+  full_data <- bind_rows(series_container)
+  check_full_data <- full_data %>% 
+    group_by(across(!c("value", "date"))) %>%
+    summarise(n = n()) %>% 
+    select(-n) %>% 
+    mutate(queried_end_date = ymd(end_date),
+           last_updated = date(ymd_hms(last_updated)),
+           need_to_update_series = if_else(as.numeric(queried_end_date - last_updated) > 0, FALSE, TRUE))
   
-  return(series_container)
+  if(any(check_full_data$need_to_update_series)) {
+    update_fun_text(check_full_data)
+  } else {
+    cli_alert_success("All of the queried series are up to date, Awesome work!")
+  }
+    
+  return(full_data)
 }
 
-vec_test <- c("GDP", "GDPC1", "RSXFS", "RSXFS", "RSFSDP")
+vec_test <- c("GDP", "GDPC1", "RSXFS", "RSFSDP")
 
-test_list <- pull_data_fred(series_vector = vec_test, start_date = "2010-01-01", end_date = "2025-09-18")
-
-# function to check for available series
-
-
+test_list <- pull_data_fred(series_vector = vec_test, start_date = "2010-01-01", end_date = "2025-09-19")
 
 
 
