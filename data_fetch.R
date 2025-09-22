@@ -47,6 +47,13 @@ library(cli)
 # Nominal GDP - GDP
 # Real GDP - GDPC1
 # Industrial production and it's composition
+# Industrial Production:
+# - TOTAL INDPRO
+# - manufacturing IPMAN
+# - durable manufacturing IPDMAN
+# - nondurable manufacturing IPNMAN
+# - mining IPMINE
+# - utilities IPUTIL
 # Retail Sales :
 # - Retail Trade RSXFS
 # - Retail Trade and Food Services RSAFS
@@ -203,7 +210,7 @@ check_frequency <- function(data) {
 
 # function to check for available series
 update_fun_text <- function(series_data) {
-  cli_alert_info("A more recent series is/are available to download.")
+  cli_h1("Newer time-series release is/are available to download.")
   series_update <- series_data %>% filter(need_to_update_series == TRUE)
   series_update_id <- series_update$id
   for (i in series_update_id) {
@@ -225,7 +232,13 @@ pull_data_fred <- function(series_vector, start_date, end_date) {
   # container list
   series_container <- list()
   
+  cli_h1("Downloading time-series data from FRED")
+  
   for (i in seq_along(series_vector)) {
+    
+    # print download series
+    cli_li(paste0(series_vector[i], " start: ", start_date," end: ", end_date))
+    
     # add try catch
     series_data <- tryCatch({
       
@@ -272,9 +285,12 @@ pull_data_fred <- function(series_vector, start_date, end_date) {
   return(full_data)
 }
 
-vec_test <- c("GDP", "GDPC1", "RSXFS", "RSFSDP")
+# Download Real economy time series data
+real_economy_id <- c("GDP", "GDPC1",
+                     "INDPRO", "IPMAN", "IPDMAN", "IPNMAN", "IPMINE", "IPUTIL",
+                     "RSXFS")
 
-test_list <- pull_data_fred(series_vector = vec_test, start_date = "2010-01-01", end_date = "2025-09-19")
+test_list <- pull_data_fred(series_vector = real_economy_id, start_date = "2010-01-01", end_date = "2025-06-19")
 
 
 
