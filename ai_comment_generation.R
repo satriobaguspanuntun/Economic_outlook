@@ -53,9 +53,16 @@ chat("gpt-oss:20b", messages, output = "text", stream = TRUE)
 # chat(model = "llama3.1", messages = messages, output = "text", stream = TRUE)  # same as above
 
 ##### GOAL ######
-
 # generate analysis and commentary for each economic themes
 # 
+
+
+
+
+
+
+
+
 
 
 

@@ -86,6 +86,8 @@ library(cli)
 # - Job Openings: Finance and Insurance (JTU5200JOL)
 # - Job Openings: Transportation, Warehousing, and Utilities (JTU480099JOL)
 # - Job Openings: State and Local (JTS9200JOL)
+# Average Weekly Hours of Production Workers — AWHMAN 
+# verage Hourly Earnings — CES0500000003
 
 ## Inflation
 # CPI
@@ -246,6 +248,7 @@ pull_data_fred <- function(series_vector, start_date, end_date) {
       
     }, error = function(e) {
       message("Error for series ", series_vector[i], ". Please recheck parameters or connection.")
+      print(e)
       data <- data.frame(realtime_start = NA,
                          realtime_end = NA,
                          date = NA,
@@ -288,11 +291,13 @@ pull_data_fred <- function(series_vector, start_date, end_date) {
 # Download Real economy time series data
 real_economy_id <- c("GDP", "GDPC1",
                      "INDPRO", "IPMAN", "IPDMAN", "IPNMAN", "IPMINE", "IPUTIL",
-                     "RSXFS")
+                     "RSXFS", "RSAFS", "RSMVPD")
 
-test_list <- pull_data_fred(series_vector = real_economy_id, start_date = "2010-01-01", end_date = "2025-06-19")
+real_economy_data <- pull_data_fred(series_vector = real_economy_id, start_date = "2000-01-30", end_date = "2025-09-22")
 
+# labour market 
+labour_market_id <- c("UNRATE", "PAYEMS", "LNS11300060", "JTSJOL", "AWHMAN", "CES0500000003")
 
-
+labour_market_data <- pull_data_fred(series_vector = labour_market_id, start_date = "2000-01-30", end_date = "2025-09-22")
 
 
