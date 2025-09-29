@@ -295,6 +295,16 @@ real_economy_id <- c("GDP", "GDPC1",
 
 real_economy_data <- pull_data_fred(series_vector = real_economy_id, start_date = "2000-01-30", end_date = "2025-09-22")
 
+
+# gdp components
+gdp_components_id <- c("PCECC96", "DGDSRX1Q020SBEA", "PCESVC96",
+                       "GPDIC1", "CBIC1", "FPIC1",
+                       "NETEXC", "EXPGSC1", "IMPGSC1",
+                       "GCEC1", 
+                       "A960RX1Q020SBEA")
+
+gdp_components <- pull_data_fred(series_vector = gdp_components_id, start_date = "2001-01-30", end_date = "2025-09-22")
+
 # labour market 
 labour_market_id <- c("UNRATE", "PAYEMS", "LNS11300060", "JTSJOL", "AWHMAN", "CES0500000003")
 
