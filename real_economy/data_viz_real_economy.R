@@ -1,9 +1,8 @@
 library(tidyverse)
 library(ggplot2)
 library(patchwork)
-
+options(scipen = 999)
 ### function for real economy series charts ###
-
 # Economist-style theme
 theme_economist_custom <- function(base_size = 14, base_family = "serif") {
   theme_minimal(base_size = base_size, base_family = base_family) %+replace%
@@ -18,7 +17,7 @@ theme_economist_custom <- function(base_size = 14, base_family = "serif") {
       panel.grid.minor = element_blank(),
       panel.grid.major.x = element_blank(),
       legend.title = element_blank(),
-      legend.position = c(.2,.85),
+      legend.position = c(0.12,.85),
       legend.text = element_text(size = rel(0.9))
     )
 }
@@ -115,8 +114,110 @@ gdp_line_chart <- function(data, type = c("qoq_annualised", "qoq_growth", "yoy_g
 }
 
 # GDP component driver
+# stacked bar chart
+gdp_component_chart <- function(data1, data2, cutoff) {
+  
+  chart_data <- data1 %>%
+    filter(id %in% c("PCECC96", "GPDIC1", "NETEXC", "GCEC1", "A960RX1Q020SBEA")) %>% 
+    select(date, value, id, title, frequency, units) %>% 
+    filter(date >= cutoff) %>% 
+    mutate(date = as.Date(date),
+           value = as.numeric(value),
+           component = case_when(id == "PCECC96" ~ "Consumption",
+                                 id == "GPDIC1" ~ "Investment", 
+                                 id == "NETEXC" ~ "NetXM",
+                                 id == "GCEC1" ~ "Government",
+                                 id == "A960RX1Q020SBEA" ~ "Residual")) %>% 
+    group_by(id) %>% 
+    arrange(date) %>% 
+    mutate(
+      qoq_growth = (abs(value) / abs(lag(value)) - 1),                 # % QoQ
+      qoq_annualised = ((abs(value) / abs(lag(value)))^4 - 1),          # % SAAR
+      yoy_growth = (abs(value) / abs(lag(value, 4)) - 1)
+    ) 
+  
+  # stacked bar chart
+  sb_comp <- chart_data %>% 
+    ggplot(aes(x = date, y = value, fill = component)) +
+    geom_area(position = "stack", alpha = 1, linewidth = 0.2, color = "white") +
+    scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+    scale_y_continuous(labels = scales::comma, breaks = function(x) pretty(x, n = 10)) +
+    scale_fill_brewer(palette = "Set2") +
+    labs(
+      title  = "GDP Components over Time",
+      subtitle = "Consumption, Investment, Government & Net Exports",
+      x      = NULL,
+      y      = "GDP (billions $)",
+      fill   = "Component",
+      caption = "Source: FRED, BEA"
+    ) +
+    theme_economist_custom()
+  
+  # QOQ chart
+  qoq_comp <- chart_data %>% 
+    drop_na() %>% 
+    filter(!component %in% c("Residual", "NetXM") & date >= cutoff) %>% 
+    ggplot(aes(x = date, y = yoy_growth, colour = component)) +
+    geom_line(size = 1.2) +
+    scale_x_date(date_labels = "%Y", date_breaks = "1 years") +
+    scale_y_continuous(labels = scales::percent, breaks = function(x) pretty(x, n = 10)) +
+    labs(
+      title  = "YoY GDP Growth Components",
+      subtitle = "Consumption, Investment, Government",
+      x      = NULL,
+      y      = "Percentage",
+      fill   = "Component",
+      caption = "Source: FRED, BEA"
+    ) +
+    theme_economist_custom()
+  
+  # stacked contribution
+  real_gdp <- data2 %>% 
+    filter(id == "GDPC1" & date >= cutoff) %>% 
+    select(date, value, id, title, frequency, units) %>% 
+    mutate(date = as.Date(date),
+           value_gdp = as.numeric(value)) %>% 
+    select(date, value_gdp)
+  
+  share <- chart_data %>%
+    left_join(real_gdp, by = join_by(date)) %>% 
+    arrange(date) %>% 
+    group_by(id, component) %>% 
+    mutate(share_lag = lag(value/value_gdp, 4))
+  
+  contrib <- share %>% 
+    ungroup() %>% 
+    mutate(contribution = yoy_growth * share_lag) %>% 
+    select(date, component, contribution)
+  
+  contrib_comp <- contrib %>% 
+    drop_na() %>% 
+    ggplot(aes(x = date, y = contribution, fill = component)) +
+    geom_col(position = "identity") +
+    scale_x_date(date_labels = "%Y", date_breaks = "1 years") +
+    scale_y_continuous(labels = scales::percent, breaks = function(x) pretty(x, n = 10)) +
+    scale_fill_brewer(palette = "Set1") +
+    labs(title = "Contributions to Real GDP Growth (YoY)",
+         y = "Contribution to GDP Growth",
+         x = "Date") +
+    theme_economist_custom()
+  
+  return(list("stack_area_comp" = sb_comp, "qoq_line_comp" = qoq_comp, "contrib_comp" = contrib_comp))
+}
+qoq_gdp_line <- gdp_line_chart(data = real_economy_data, type = "qoq_annualised")
+qoq_gdp_line
+yoy_gdp_line <- gdp_line_chart(data = real_economy_data, type = "yoy_growth")
+yoy_gdp_line
+chart_gdp_comp <- gdp_component_chart(data1 = gdp_components, data2 = real_economy_data, cutoff = "2002-01-01")
 
+# GDP table
 
+## Industrial production
+# IP table
+
+## Retail trade
+# retail trade chart
+# Retail table
 
 
 
