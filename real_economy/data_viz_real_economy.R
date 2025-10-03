@@ -1,6 +1,8 @@
 library(tidyverse)
 library(ggplot2)
-library(patchwork)
+library(lubridate)
+library(gt)
+
 options(scipen = 999)
 ### function for real economy series charts ###
 # Economist-style theme
@@ -23,10 +25,10 @@ theme_economist_custom <- function(base_size = 14, base_family = "serif") {
 }
 
 # GDP chart 
-gdp_line_chart <- function(data, type = c("qoq_annualised", "qoq_growth", "yoy_growth")) {
+gdp_line_chart <- function(data, cutoff, type = c("qoq_annualised", "qoq_growth", "yoy_growth")) {
   
   data_graph <- data %>% 
-    filter(id %in% c("GDP", "GDPC1")) %>% 
+    filter(id %in% c("GDP", "GDPC1") & date >= cutoff) %>% 
     select(id, title, date, value, frequency, units, last_updated) %>% 
     group_by(id) %>% 
     arrange(date) %>% 
@@ -199,18 +201,143 @@ gdp_component_chart <- function(data1, data2, cutoff) {
     scale_fill_brewer(palette = "Set1") +
     labs(title = "Contributions to Real GDP Growth (YoY)",
          y = "Contribution to GDP Growth",
-         x = "Date") +
+         x = NULL, 
+         caption = "Source: FRED, BEA") +
     theme_economist_custom()
   
   return(list("stack_area_comp" = sb_comp, "qoq_line_comp" = qoq_comp, "contrib_comp" = contrib_comp))
 }
-qoq_gdp_line <- gdp_line_chart(data = real_economy_data, type = "qoq_annualised")
+qoq_gdp_line <- gdp_line_chart(data = real_economy_data, cutoff = "2018-01-01", type = "qoq_annualised")
 qoq_gdp_line
-yoy_gdp_line <- gdp_line_chart(data = real_economy_data, type = "yoy_growth")
+yoy_gdp_line <- gdp_line_chart(data = real_economy_data, cutoff = "2018-01-01", type = "yoy_growth")
 yoy_gdp_line
-chart_gdp_comp <- gdp_component_chart(data1 = gdp_components, data2 = real_economy_data, cutoff = "2002-01-01")
+chart_gdp_comp <- gdp_component_chart(data1 = gdp_components, data2 = real_economy_data, cutoff = "2018-01-01")
+chart_gdp_comp$contrib_comp
 
-# GDP table
+## GDP table
+gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default")) {
+  
+  data_table <- real_economy_data %>% 
+    filter(id %in% c("GDP", "GDPC1") & date >= "2018-01-01") %>% 
+    select(id, title, date, value, frequency, units, last_updated) %>% 
+    group_by(id) %>% 
+    arrange(date) %>% 
+    mutate(
+      value = as.numeric(value),
+      qoq_growth = (value / lag(value) - 1),                 # % QoQ
+      qoq_annualised = ((value / lag(value))^4 - 1),          # % SAAR
+      yoy_growth = (value / lag(value, 4) - 1),
+      series = ifelse(id == "GDP", "Nominal GDP", "Real GDP")
+    ) 
+  min_gdp_date <- unique(min(data_table$date))
+  max_gdp_date <- unique(max(data_table$date))
+  
+  # summary stats table
+  if (type == "summary") {
+    gdp_freq <- unique(data_table$frequency)
+    gdp_units <- unique(data_table$units)
+    
+    gdp_sum <- data_table %>% 
+      ungroup() %>% 
+      select(date, series, value) %>% 
+      pivot_wider(names_from = series, values_from = value) %>% 
+      arrange(date) %>% 
+      summarise(
+        across(`Nominal GDP`:`Real GDP`,
+               list(
+                 Mean = ~mean(., na.rm = TRUE),
+                 Median = ~median(., na.rm = TRUE),
+                 Min = ~min(., na.rm = TRUE),
+                 Max =  ~max(., na.ram = TRUE),
+                 SD = ~sd(., na.rm = TRUE),
+                 N = ~sum(!is.na(.), na.rm = TRUE)
+               ))
+      ) %>% 
+      pivot_longer(cols = everything(),
+                   names_to = c("Series", "Statistics"),
+                   names_sep = "_",
+                   values_to = "Value") %>% 
+      pivot_wider(names_from = Series, values_from = Value)
+    
+    # Render with gt
+    gdp_stats_gt <- gdp_sum %>%
+      gt(rowname_col = "Statistics") %>%
+      tab_header(
+        title = md("**Descriptive Statistics of U.S. GDP**"),
+        subtitle = "Nominal vs Real GDP"
+      ) %>%
+      fmt_number(
+        columns = c(`Nominal GDP`, `Real GDP`),
+        decimals = 2,
+        suffixing = TRUE
+      ) %>%
+      cols_label(
+        `Nominal GDP` = "Nominal GDP (Billions $)",
+        `Real GDP`    = "Real GDP (Billions, Chained $2017)"
+      ) %>%
+      tab_style(
+        style = list(cell_text(weight = "bold")),
+        locations = cells_row_groups()
+      ) %>%
+      tab_options(
+        table.font.size = 12,
+        table.width = pct(80)
+      )
+    
+    gdp_stats_gt
+  } else if (type == "growth") {
+    # growth table
+    gdp_growth <- data_table %>% 
+      ungroup() %>% 
+      select(date, series, qoq_growth, qoq_annualised, yoy_growth) %>% 
+      pivot_longer(cols = qoq_growth:yoy_growth,
+                   names_to = "growth_var",
+                   values_to = "growth_val") %>% 
+      pivot_wider(names_from = growth_var, values_from = growth_val) %>% 
+      filter(date >= floor_date(max_gdp_date - 90 * 8, unit = "month")) %>% 
+      arrange(desc(date)) %>% 
+      mutate(across(qoq_growth:yoy_growth, ~paste0(round(.x * 100, 2), "%"))) %>% 
+      mutate(date = paste0(year(date), " Q", quarter(date))) %>% 
+      pivot_longer(cols = qoq_growth:yoy_growth, names_to = "growth_var", values_to = "value") %>% 
+      pivot_wider(names_from = date, values_from = value)
+    
+    gdp_growth_gt <- gdp_growth %>%
+      group_by(series) %>%
+      gt(rowname_col = "growth_var") %>% 
+      tab_header(title = md("**Growth Rate Table of U.S. GDP**"),
+                 subtitle = "Nominal vs Real GDP") %>% 
+      tab_options(
+        data_row.padding = px(2),
+        summary_row.padding = px(3), # A bit more padding for summaries
+        row_group.padding = px(4)    # And even more for our groups
+      ) %>% 
+      opt_stylize(style = 6, color = 'gray')
+    
+    gdp_growth_gt
+  }
+  
+  
+  # default table
+  
+}
+  
+# GDP contribution table
+
+gdp_contrib_table <- function(data1, data2, cutoff) {
+  
+  
+  
+  
+  
+  
+}
+
+
+
+
+
+
+
 
 ## Industrial production
 # IP table
