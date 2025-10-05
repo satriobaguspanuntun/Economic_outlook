@@ -39,7 +39,7 @@ gdp_line_chart <- function(data, cutoff, type = c("qoq_annualised", "qoq_growth"
       yoy_growth = (value / lag(value, 4) - 1),
       series = ifelse(id == "GDP", "Nominal GDP", "Real GDP")
     ) 
-    
+  
   if(type == "qoq_annualised") {
     
     data_graph %>% 
@@ -95,7 +95,7 @@ gdp_line_chart <- function(data, cutoff, type = c("qoq_annualised", "qoq_growth"
       theme_economist_custom()
     
   } else {
-     
+    
     data_graph %>% 
       drop_na() %>% 
       ggplot(aes(x = date, y = value, colour = series)) +
@@ -285,6 +285,7 @@ gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default"
       )
     
     gdp_stats_gt
+    
   } else if (type == "growth") {
     # growth table
     gdp_growth <- data_table %>% 
@@ -320,7 +321,7 @@ gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default"
   # default table
   
 }
-  
+
 # GDP contribution table
 
 gdp_contrib_table <- function(data1, data2, cutoff) {
@@ -332,6 +333,19 @@ gdp_contrib_table <- function(data1, data2, cutoff) {
   
 }
 
+
+
+
+
+
+
+
+## Industrial production
+# IP table
+
+## Retail trade
+# retail trade chart
+# Retail table
 
 
 
