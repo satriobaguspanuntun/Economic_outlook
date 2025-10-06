@@ -2,6 +2,7 @@ library(tidyverse)
 library(ggplot2)
 library(lubridate)
 library(gt)
+library(gtExtras)
 
 options(scipen = 999)
 ### function for real economy series charts ###
@@ -218,7 +219,7 @@ chart_gdp_comp$contrib_comp
 gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default")) {
   
   data_table <- real_economy_data %>% 
-    filter(id %in% c("GDP", "GDPC1") & date >= "2018-01-01") %>% 
+    filter(id %in% c("GDP", "GDPC1") & date >= cutoff) %>% 
     select(id, title, date, value, frequency, units, last_updated) %>% 
     group_by(id) %>% 
     arrange(date) %>% 
@@ -229,6 +230,7 @@ gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default"
       yoy_growth = (value / lag(value, 4) - 1),
       series = ifelse(id == "GDP", "Nominal GDP", "Real GDP")
     ) 
+  
   min_gdp_date <- unique(min(data_table$date))
   max_gdp_date <- unique(max(data_table$date))
   
@@ -275,14 +277,45 @@ gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default"
         `Nominal GDP` = "Nominal GDP (Billions $)",
         `Real GDP`    = "Real GDP (Billions, Chained $2017)"
       ) %>%
-      tab_style(
-        style = list(cell_text(weight = "bold")),
-        locations = cells_row_groups()
-      ) %>%
-      tab_options(
-        table.font.size = 12,
-        table.width = pct(80)
-      )
+      # ---- TABLE OPTIONS ----
+    tab_options(
+      table.width = pct(80),
+      table.font.names = c("Lato", "Helvetica", "Arial", "sans-serif"),
+      table.font.size = 14,
+      heading.title.font.size = 16, 
+      heading.align = "left",
+      heading.subtitle.font.size = 14,
+      column_labels.font.weight = "bold",
+      data_row.padding = px(6),
+      row.striping.background_color = "rgba(245,245,245,0.6)",
+      table.border.top.color = "transparent",
+      table.border.bottom.color = "#444444",
+      heading.border.bottom.color = "#444444"
+    ) %>%
+      
+      # ---- TITLE STYLING ----
+    tab_style(
+      style = list(
+        cell_text(weight = "bold", size = "large", color = "#1a1a1a")
+      ),
+      locations = cells_title(groups = "title")
+    ) %>%
+      
+      # ---- SUBTITLE STYLING ----
+    tab_style(
+      style = list(
+        cell_text(color = "#555555", style = "italic")
+      ),
+      locations = cells_title(groups = "subtitle")
+    ) %>%
+      
+      # ---- ROW STRIPING ----
+    opt_row_striping() %>%
+      
+      # ---- FOOTNOTE ----
+    tab_source_note(
+      source_note = md("**Source:** Bureau of Economic Analysis (BEA), calculations by author")
+    )
     
     gdp_stats_gt
     
@@ -297,33 +330,70 @@ gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default"
       pivot_wider(names_from = growth_var, values_from = growth_val) %>% 
       filter(date >= floor_date(max_gdp_date - 90 * 8, unit = "month")) %>% 
       arrange(desc(date)) %>% 
-      mutate(across(qoq_growth:yoy_growth, ~paste0(round(.x * 100, 2), "%"))) %>% 
+      # mutate(across(qoq_growth:yoy_growth, ~paste0(round(.x * 100, 2), "%"))) %>% 
       mutate(date = paste0(year(date), " Q", quarter(date))) %>% 
       pivot_longer(cols = qoq_growth:yoy_growth, names_to = "growth_var", values_to = "value") %>% 
-      pivot_wider(names_from = date, values_from = value)
+      pivot_wider(names_from = date, values_from = value) %>% 
+      mutate(growth_var = case_when(growth_var == "qoq_growth" ~ paste0("QoQ Growth"),
+                                    growth_var == "qoq_annualised" ~ paste0("QoQ Annualised"),
+                                    growth_var == "yoy_growth" ~ paste0("YoY Growth")))
     
     gdp_growth_gt <- gdp_growth %>%
       group_by(series) %>%
       gt(rowname_col = "growth_var") %>% 
       tab_header(title = md("**Growth Rate Table of U.S. GDP**"),
                  subtitle = "Nominal vs Real GDP") %>% 
-      tab_options(
-        data_row.padding = px(2),
-        summary_row.padding = px(3), # A bit more padding for summaries
-        row_group.padding = px(4)    # And even more for our groups
+      fmt_percent(columns = where(is.numeric), decimals = 2) %>% 
+      data_color(
+        columns = where(is.numeric),
+        colors = scales::col_numeric(
+          palette = c("white", "#1f77b4"),  # white to blue
+          domain = NULL  # auto-scales to data range
+        )
       ) %>% 
-      opt_stylize(style = 6, color = 'gray')
+    tab_options(
+      table.width = pct(100),
+      table.font.names = c("Lato", "Helvetica", "Arial", "sans-serif"),
+      table.font.size = 14,
+      heading.title.font.size = 16, 
+      heading.align = "left",
+      heading.subtitle.font.size = 14,
+      column_labels.font.weight = "bold",
+      data_row.padding = px(6),
+      table.border.top.color = "transparent",
+      table.border.bottom.color = "#444444",
+      heading.border.bottom.color = "#444444",
+      row.striping.background_color = "rgba(245,245,245,0.6)"
+    ) %>%
+    tab_style(
+      style = list(
+        cell_text(weight = "bold", size = "large", color = "#1a1a1a")
+      ),
+      locations = cells_title(groups = "title")
+    ) %>%
+    tab_style(
+      style = list(
+        cell_text(color = "#555555", style = "italic")
+      ),
+      locations = cells_title(groups = "subtitle")
+    ) %>%
+    tab_style(
+      style = cell_text(color = "black", weight = "bold"),
+      locations = cells_row_groups()
+    ) %>% 
+    opt_row_striping() %>%
+    tab_source_note(
+      source_note = md("**Source:** Bureau of Economic Analysis (BEA), calculations by author")
+    )
     
     gdp_growth_gt
   }
   
-  
-  # default table
-  
 }
 
-# GDP contribution table
+gdp_table_func(data = real_economy_id, cutoff = "2015-01-01", type = "growth")
 
+# GDP contribution table
 gdp_contrib_table <- function(data1, data2, cutoff) {
   
   
@@ -346,27 +416,6 @@ gdp_contrib_table <- function(data1, data2, cutoff) {
 ## Retail trade
 # retail trade chart
 # Retail table
-
-
-
-
-
-
-
-## Industrial production
-# IP table
-
-## Retail trade
-# retail trade chart
-# Retail table
-
-
-
-
-
-
-
-
 
 
 
