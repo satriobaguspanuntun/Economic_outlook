@@ -134,9 +134,9 @@ gdp_component_chart <- function(data1, data2, cutoff) {
     group_by(id) %>% 
     arrange(date) %>% 
     mutate(
-      qoq_growth = (abs(value) / abs(lag(value)) - 1),                 # % QoQ
-      qoq_annualised = ((abs(value) / abs(lag(value)))^4 - 1),          # % SAAR
-      yoy_growth = (abs(value) / abs(lag(value, 4)) - 1)
+      qoq_growth = value / lag(value) - 1,                 # % QoQ
+      qoq_annualised = (value / lag(value))^4 - 1,          # % SAAR
+      yoy_growth = (value / lag(value, 4) - 1)
     ) 
   
   # stacked bar chart
@@ -208,17 +208,11 @@ gdp_component_chart <- function(data1, data2, cutoff) {
   
   return(list("stack_area_comp" = sb_comp, "qoq_line_comp" = qoq_comp, "contrib_comp" = contrib_comp))
 }
-qoq_gdp_line <- gdp_line_chart(data = real_economy_data, cutoff = "2018-01-01", type = "qoq_annualised")
-qoq_gdp_line
-yoy_gdp_line <- gdp_line_chart(data = real_economy_data, cutoff = "2018-01-01", type = "yoy_growth")
-yoy_gdp_line
-chart_gdp_comp <- gdp_component_chart(data1 = gdp_components, data2 = real_economy_data, cutoff = "2018-01-01")
-chart_gdp_comp$contrib_comp
 
 ## GDP table
 gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default")) {
   
-  data_table <- real_economy_data %>% 
+  data_table <- data %>% 
     filter(id %in% c("GDP", "GDPC1") & date >= cutoff) %>% 
     select(id, title, date, value, frequency, units, last_updated) %>% 
     group_by(id) %>% 
@@ -391,8 +385,6 @@ gdp_table_func <- function(data, cutoff, type = c("summary", "growth", "default"
   
 }
 
-gdp_table_func(data = real_economy_id, cutoff = "2015-01-01", type = "growth")
-
 # GDP contribution table
 gdp_contrib_table <- function(data1, data2, cutoff) {
   
@@ -410,10 +402,14 @@ gdp_contrib_table <- function(data1, data2, cutoff) {
     group_by(id) %>% 
     arrange(date) %>% 
     mutate(
-      qoq_growth = (abs(value) / abs(lag(value)) - 1),                 # % QoQ
-      qoq_annualised = ((abs(value) / abs(lag(value)))^4 - 1),          # % SAAR
-      yoy_growth = (abs(value) / abs(lag(value, 4)) - 1)
+      qoq_growth = value / lag(value) - 1,                 # % QoQ
+      qoq_annualised = (value / lag(value))^4 - 1,          # % SAAR
+      yoy_growth = (value / lag(value, 4) - 1)
     ) 
+  
+  min_gdp_contrib_date <- unique(min(chart_data$date))
+  max_gdp_contrib_date <- unique(max(chart_data$date))
+  gdp_contrib_date <- unique(chart_data$date)
   
   # stacked contribution
   real_gdp <- data2 %>% 
@@ -432,16 +428,70 @@ gdp_contrib_table <- function(data1, data2, cutoff) {
   contrib <- share %>% 
     ungroup() %>% 
     mutate(contribution = yoy_growth * share_lag) %>% 
-    select(date, component, contribution)
+    select(date, component, contribution) 
   
-  
+  if (length(gdp_contrib_date) >= 8) {
+    
+    contrib_wide <- contrib %>% 
+      arrange(desc(date)) %>% 
+      filter(date >= floor_date(max_gdp_contrib_date - 90 * 8, unit = "month")) %>% 
+      group_by(date) %>% 
+      mutate(
+        date = paste0(year(date), " Q", quarter(date))) %>% 
+      pivot_wider(names_from = date, values_from = contribution)
+      
+    # table
+    gdp_contrib_table <- contrib_wide %>%
+      gt(rowname_col = "component") %>% 
+      tab_header(title = md("**Contributions to Real GDP Growth**"),
+                 subtitle = "YoY % points") %>% 
+      fmt_percent(columns = where(is.numeric), decimals = 2) %>% 
+      data_color(
+        columns = where(is.numeric),
+        colors = scales::col_numeric(
+          palette = c("white", "#4BCC18"),  # white to green
+          domain = NULL  # auto-scales to data range
+        )
+      ) %>% 
+      tab_options(
+        table.width = pct(100),
+        table.font.names = c("Lato", "Helvetica", "Arial", "sans-serif"),
+        table.font.size = 14,
+        heading.title.font.size = 16, 
+        heading.align = "left",
+        heading.subtitle.font.size = 14,
+        column_labels.font.weight = "bold",
+        data_row.padding = px(6),
+        table.border.top.color = "transparent",
+        table.border.bottom.color = "#444444",
+        heading.border.bottom.color = "#444444",
+        row.striping.background_color = "rgba(245,245,245,0.6)"
+      ) %>%
+      tab_style(
+        style = list(
+          cell_text(weight = "bold", size = "large", color = "#1a1a1a")
+        ),
+        locations = cells_title(groups = "title")
+      ) %>%
+      tab_style(
+        style = list(
+          cell_text(color = "#555555", style = "italic")
+        ),
+        locations = cells_title(groups = "subtitle")
+      ) %>%
+      tab_style(
+        style = cell_text(color = "black", weight = "bold"),
+        locations = cells_row_groups()
+      ) %>% 
+      opt_row_striping() %>%
+      tab_source_note(
+        source_note = md("**Source:** Bureau of Economic Analysis (BEA), calculations by author")
+      )
+  } else {
+    stop("Please ensure the data has at least 2 years timeframe")
+  }
+  return(gdp_contrib_table)
 }
-
-
-
-
-
-
 
 
 ## Industrial production
