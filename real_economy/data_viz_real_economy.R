@@ -396,9 +396,43 @@ gdp_table_func(data = real_economy_id, cutoff = "2015-01-01", type = "growth")
 # GDP contribution table
 gdp_contrib_table <- function(data1, data2, cutoff) {
   
+  chart_data <- data1 %>%
+    filter(id %in% c("PCECC96", "GPDIC1", "NETEXC", "GCEC1", "A960RX1Q020SBEA")) %>% 
+    select(date, value, id, title, frequency, units) %>% 
+    filter(date >= cutoff) %>% 
+    mutate(date = as.Date(date),
+           value = as.numeric(value),
+           component = case_when(id == "PCECC96" ~ "Consumption",
+                                 id == "GPDIC1" ~ "Investment", 
+                                 id == "NETEXC" ~ "NetXM",
+                                 id == "GCEC1" ~ "Government",
+                                 id == "A960RX1Q020SBEA" ~ "Residual")) %>% 
+    group_by(id) %>% 
+    arrange(date) %>% 
+    mutate(
+      qoq_growth = (abs(value) / abs(lag(value)) - 1),                 # % QoQ
+      qoq_annualised = ((abs(value) / abs(lag(value)))^4 - 1),          # % SAAR
+      yoy_growth = (abs(value) / abs(lag(value, 4)) - 1)
+    ) 
   
+  # stacked contribution
+  real_gdp <- data2 %>% 
+    filter(id == "GDPC1" & date >= cutoff) %>% 
+    select(date, value, id, title, frequency, units) %>% 
+    mutate(date = as.Date(date),
+           value_gdp = as.numeric(value)) %>% 
+    select(date, value_gdp)
   
+  share <- chart_data %>%
+    left_join(real_gdp, by = join_by(date)) %>% 
+    arrange(date) %>% 
+    group_by(id, component) %>% 
+    mutate(share_lag = lag(value/value_gdp, 4))
   
+  contrib <- share %>% 
+    ungroup() %>% 
+    mutate(contribution = yoy_growth * share_lag) %>% 
+    select(date, component, contribution)
   
   
 }
