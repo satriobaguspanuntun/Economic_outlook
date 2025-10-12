@@ -8,6 +8,8 @@ list_models()
 resp <- generate("gpt-oss:20b", "are you aware that you're being called from Rstudio? If so, if i want to pass vector or data to you how do i do it?", output = "text")
 resp
 
+live_browser(chat = chat_ollama())
+
 # define a JSON schema as a list to constrain a model's output
 format <- list(
   type = "object",
@@ -56,11 +58,10 @@ chat("gpt-oss:20b", messages, output = "text", stream = TRUE)
 # generate analysis and commentary for each economic themes
 # 
 
+library(ellmer)
 
-
-
-
-
+chat <- chat_ollama(model = "gpt-oss:20b")
+chat$chat("Tell me three jokes about statisticians")
 
 
 
