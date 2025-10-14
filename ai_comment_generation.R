@@ -1,11 +1,15 @@
 library(ollamar)
 library(httr2)
 library(tidyverse)
+library(jsonlite)
+library(glue)
 
 test_connection()
 list_models()
 
-resp <- generate("gpt-oss:20b", "are you aware that you're being called from Rstudio? If so, if i want to pass vector or data to you how do i do it?", output = "text")
+ollamar::pull("gpt-oss:20b-cloud")
+
+resp <- generate("gemma", "are you aware that you're being called from Rstudio? If so, if i want to pass vector or data to you how do i do it?", output = "text")
 resp
 
 live_browser(chat = chat_ollama())
@@ -64,7 +68,18 @@ chat <- chat_ollama(model = "gpt-oss:20b")
 chat$chat("Tell me three jokes about statisticians")
 
 
+### commentary function 
 
+# Real GDP analysis
+prompt_gdp_analysis <- "You are a expert macroeconomist and you are tasked to
+                        generate a report on US economy. The first thing you will need
+                        to do is analysing US GDP and the GDP section is divided into
+                        5 paragraph in total. Right now, you are in the first paragraph and
+                        you required to explain why GDP analysis is important for this economic report.
+                        generate paragraph consisting 100 maximum words. Please return only the paragpraph, 
+                        no title and omit the first sentence like 'Okay, here's the first'."
+
+resp_gdp_analysis <- generate("gemma3:1b", prompt_gdp_analysis, output = "text")
 
 
 

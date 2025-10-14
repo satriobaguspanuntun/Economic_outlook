@@ -493,9 +493,38 @@ gdp_contrib_table <- function(data1, data2, cutoff) {
   return(gdp_contrib_table)
 }
 
+#### data for AI
+# function for gdp line chart data 
+gdp_line_chart_data_ai <- function(data, cutoff, type = c("qoq_annualised", "qoq_growth", "yoy_growth"), return_json = TRUE) {
+  
+  data_graph <- data %>% 
+    filter(id %in% c("GDP", "GDPC1") & date >= cutoff) %>% 
+    select(id, title, date, value, frequency, units, last_updated) %>% 
+    group_by(id) %>% 
+    arrange(date) %>% 
+    mutate(
+      value = as.numeric(value),
+      qoq_growth = (value / lag(value) - 1),                 # % QoQ
+      qoq_annualised = ((value / lag(value))^4 - 1),          # % SAAR
+      yoy_growth = (value / lag(value, 4) - 1),
+      series = ifelse(id == "GDP", "Nominal GDP", "Real GDP")
+    ) %>% 
+    select(id, title, date, !!type, frequency) %>% 
+    drop_na()
+  
+  if (return_json == TRUE) {
+    
+    data_graph <- toJSON(data_graph, pretty = TRUE)
+    
+  }
+  
+  return(data_graph)
+}
 
 ## Industrial production
 # IP table
+
+
 
 ## Retail trade
 # retail trade chart

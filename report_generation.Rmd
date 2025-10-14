@@ -14,6 +14,8 @@ library(lubridate)
 library(patchwork)
 library(gt)
 library(gtExtras)
+library(ollamar)
+library(jsonlite)
 
 # parameters
 cutoff_date <- as.character(ymd(Sys.Date()))
@@ -63,9 +65,32 @@ options(scipen = 999)
 
 ### GDP Analysis
 
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+```{r first paragraph}
+# Real GDP analysis
+prompt_gdp_analysis <- "You are a expert macroeconomist and you are tasked to
+                        generate a report on US economy. The first thing you will need
+                        to do is analysing US GDP and the GDP section is divided into
+                        5 paragraph in total. Right now, you are in the first paragraph and
+                        you required to explain why GDP analysis is important for this economic report.
+                        generate paragraph consisting 100 maximum words. Please return only the paragpraph, 
+                        no title and omit the first sentence like 'Okay, here's the first'."
 
-It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+resp_gdp_analysis <- generate("gemma3:1b", prompt_gdp_analysis, output = "text")
+
+```
+
+`r resp_gdp_analysis`
+
+```{r second paragraph}
+gdp_json_second_par <- gdp_line_chart_data_ai(data = real_economy_data,
+                                              cutoff = "2018-01-01",
+                                              type = "yoy_growth")
+
+prompt_gdp_analysis_second <- paste0("You are an expert macroeconomist and you are tasked to generate a report on US economy. The first thing you will need to do is analysing US GDP and the GDP section is divided into 5 paragraph in total. Right now, you are in the second paragraph and you are tasked to generate paragraph consisting 200 maximum words about the Nominal and Real GDP Growth rate movements across time, also provide a quick analysis on movements and direction of the GDP growth rate. Please return only the paragpraph, no title, omit the first sentence like 'Okay, here's the first' and please analyse the given JSON data only and omit paragraph title, future projection and key take aways. Here is the data in JSON format:", gdp_json_second_par)
+
+resp_gd_second_par <- generate("gemma3:1b", prompt_gdp_analysis_second, output = "text")
+
+```
 
 #### Real & Nominal GDP level and Growth Rate
 
@@ -78,12 +103,10 @@ qoq_gdp_line <- gdp_line_chart(data = real_economy_data,
                                cutoff = "2018-01-01",
                                type = "qoq_annualised")
 
-qoq_gdp_line + yoy_gdp_line
+yoy_gdp_line
 ```
 
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
-
-It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+`r resp_gd_second_par`
 
 #### Nominal vs Real GDP table
 
@@ -113,3 +136,10 @@ gdp_contrib_table(data1 = gdp_components, data2 = real_economy_data, cutoff = "2
 ```
 
 It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+
+```{r testing markdown}
+resp <- generate("gemma3:1b", "Could give a summarise on mining outlook in Indonesia?", output = "text")
+
+```
+
+`r resp`
