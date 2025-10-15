@@ -170,4 +170,6 @@ fourth_prompt <- chat$chat(paste0(
 gdp_contrib_table(data1 = gdp_components, data2 = real_economy_data, cutoff = "2018-01-01")
 ```
 
+### Production and Supply
+
 ### Industrial Production & Retail Trade
