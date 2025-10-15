@@ -60,12 +60,6 @@ chat("gpt-oss:20b", messages, output = "text", stream = TRUE)
 
 ##### GOAL ######
 # generate analysis and commentary for each economic themes
-# 
-
-library(ellmer)
-
-chat <- chat_ollama(model = "gpt-oss:20b")
-chat$chat("Tell me three jokes about statisticians")
 
 
 ### commentary function 
@@ -82,5 +76,72 @@ prompt_gdp_analysis <- "You are a expert macroeconomist and you are tasked to
 resp_gdp_analysis <- generate("gemma3:1b", prompt_gdp_analysis, output = "text")
 
 
+# create chat history
+messages <- create_messages(
+  create_message("end all your sentences with !!!", role = "system"),
+  create_message("Hello!"),  # default role is user
+  create_message("Hi, how can I help you?!!!", role = "assistant"),
+  create_message("What is the capital of Australia?"),
+  create_message("Canberra!!!", role = "assistant"),
+  create_message("what is your name?")
+)
+cat(chat("gpt-oss:20b", messages, output = "text"))  # print the formatted output
+
+
+prompt_first_par <- create_messages(
+  create_message("You are an expert macroeconomist and you are tasked to create a
+                 macroeconomic outlook report. Your answer should be in line with
+                 the following rules:
+                 
+                 * Return only in paragraph.
+                 * Be concise and coherent.
+                 * Do not generate title.
+                 * Omit the first sentence of the answer like 'Okay here is the analysis etc'.",
+                 role = "system"),
+  # first paragraph
+  create_message("You are working on writing a macroeconomic outlook report for the USA.
+                 Right now, you are in the GDP analysis section and this section will be
+                 divided into 5 paragraph. For the first paragraph, write up an explanation
+                 on why GDP analysis is important for 100 words. Also, no need for summarization on the last sentence
+                 of the paragraph.")
+)
+
+chat("gpt-oss:20b", prompt_first_par, output = "text")
+
+
+library(ellmer)
+
+chat <- chat_ollama(model = "gpt-oss:120b-cloud", 
+                    system_prompt = 
+                 "You are an expert macroeconomist and you are tasked to create a
+                 macroeconomic outlook report. Your answer should be in line with
+                 the following rules:
+                 
+                 * Return only in paragraph.
+                 * Be concise and coherent.
+                 * Do not generate title.
+                 * Return the answer in a nice markdown text, so that it can easily intergrated into Rmarkdown.
+                 * Omit the first sentence of the answer like 'Okay here is the analysis etc'.")
+
+first_prompt <- chat$chat("You are working on writing a macroeconomic outlook report for the USA.
+                 Right now, you are in the GDP analysis section and this section will be
+                 divided into 5 paragraph. For the first paragraph, write up an explanation
+                 on why GDP analysis is important for 100 words. Also, no need for summarization on the last sentence
+                 of the paragraph.")
+
+second_prompt <- chat$chat(paste0("After that brief explanation on GDP analysis, you are asked to write up 
+                                  2 paragraphs. For the first paragraph, briefly give an introduction on
+                                  USA economy in the context of GDP. For example latest data movements and recent
+                                  trends. As for the second paragraph, You will dig deeper into numbers
+                                  showcasing movements and direction of the both Nominal and Real GDP growth rates.
+                                  The first paragraph should consist at least 100 words whereas second paragraph cover
+                                  at least 200 words. the dataset is provided to you in JSON format.
+                                  Here is the JSON data:",  gdp_json_second_par))
+
+third_prompt <- chat$chat("Now, you need to bridge previous analysis on Nominal and Real GDP growth rate to 
+                          Real GDP components contribution towards Real GDP Growth Rate, 
+                          which includes Consumption, Government spending, Investment, Net Export and Import, and
+                          lastly the Residual. Write up a paragraph which consist of 70 words on why analysing 
+                          contribution to real gdp growth from each components is important.")
 
 

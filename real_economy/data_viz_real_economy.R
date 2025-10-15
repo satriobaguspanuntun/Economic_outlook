@@ -7,7 +7,7 @@ library(gtExtras)
 options(scipen = 999)
 ### function for real economy series charts ###
 # Economist-style theme
-theme_economist_custom <- function(base_size = 14, base_family = "serif") {
+theme_economist_custom <- function(base_size = 18, base_family = "serif") {
   theme_minimal(base_size = base_size, base_family = base_family) %+replace%
     theme(
       plot.title = element_text(face = "bold", size = rel(1.0), hjust = 0, margin = margin(b = 5)),
@@ -519,6 +519,57 @@ gdp_line_chart_data_ai <- function(data, cutoff, type = c("qoq_annualised", "qoq
   }
   
   return(data_graph)
+}
+
+# function for GDP component
+gdp_comp_data_ai <- function(data1, data2, cutoff, return_json = TRUE){
+  
+  chart_data <- data1 %>%
+    filter(id %in% c("PCECC96", "GPDIC1", "NETEXC", "GCEC1", "A960RX1Q020SBEA")) %>% 
+    select(date, value, id, title, frequency, units) %>% 
+    filter(date >= cutoff) %>% 
+    mutate(date = as.Date(date),
+           value = as.numeric(value),
+           component = case_when(id == "PCECC96" ~ "Consumption",
+                                 id == "GPDIC1" ~ "Investment", 
+                                 id == "NETEXC" ~ "NetXM",
+                                 id == "GCEC1" ~ "Government",
+                                 id == "A960RX1Q020SBEA" ~ "Residual")) %>% 
+    group_by(id) %>% 
+    arrange(date) %>% 
+    mutate(
+      qoq_growth = value / lag(value) - 1,                 # % QoQ
+      qoq_annualised = (value / lag(value))^4 - 1,          # % SAAR
+      yoy_growth = (value / lag(value, 4) - 1)
+    ) 
+  
+  # stacked contribution
+  real_gdp <- data2 %>% 
+    filter(id == "GDPC1" & date >= cutoff) %>% 
+    select(date, value, id, title, frequency, units) %>% 
+    mutate(date = as.Date(date),
+           value_gdp = as.numeric(value)) %>% 
+    select(date, value_gdp)
+  
+  share <- chart_data %>%
+    left_join(real_gdp, by = join_by(date)) %>% 
+    arrange(date) %>% 
+    group_by(id, component) %>% 
+    mutate(share_lag = lag(value/value_gdp, 4))
+  
+  contrib <- share %>% 
+    ungroup() %>% 
+    mutate(contribution = yoy_growth * share_lag) %>% 
+    select(date, component, contribution) %>% 
+    drop_na()
+  
+  if (return_json == TRUE) {
+    
+    contrib <- toJSON(contrib, pretty = TRUE)
+    
+  }
+  
+  return(contrib)
 }
 
 ## Industrial production
